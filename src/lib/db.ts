@@ -12,20 +12,20 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
  *
  * - `import "server-only"` faz o build quebrar se este arquivo for importado
  *   de um Client Component. A DATABASE_URL nunca chega ao browser.
+ * - Instanciação **preguiçosa** (Proxy, só cria o client no primeiro uso real):
+ *   `next build` importa módulos de rota (ex.: sitemap.ts -> vehicles.ts ->
+ *   este arquivo) só pra ler exports de configuração como `dynamic`, sem
+ *   nunca chamar a função da rota. Se a criação do client rodasse no
+ *   top-level do módulo (como antes), isso lia o certificado/validava env
+ *   vars durante o BUILD - fase em que env vars "Secret" da Vercel podem
+ *   não estar disponíveis, quebrando `next build` com um erro que não tem
+ *   nada a ver com runtime de verdade.
  * - Singleton com cache no globalThis para não abrir uma conexão nova a cada
  *   hot reload em dev.
  * - `omit` global: os campos administrativos de Vehicle NUNCA saem numa query
  *   comum. Só um contexto admin, passando `omit: { <campo>: false }`
  *   explicitamente na query, consegue lê-los.
  */
-
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL não definida. Configure a conexão do MySQL/Aiven no .env.",
-  );
-}
 
 /**
  * CA da Aiven: em dev, lido do arquivo `certs/ca.pem` (gitignored). Em
@@ -78,13 +78,20 @@ export const VEHICLE_ADMIN_FIELDS = {
   internalNotes: true,
 } as const;
 
-const createPrismaClient = () =>
-  new PrismaClient({
+function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL não definida. Configure a conexão do MySQL/Aiven no .env.",
+    );
+  }
+  return new PrismaClient({
     adapter: new PrismaMariaDb(buildPoolConfig(connectionString)),
     omit: {
       vehicle: VEHICLE_ADMIN_FIELDS,
     },
   });
+}
 
 type AppPrismaClient = ReturnType<typeof createPrismaClient>;
 
@@ -92,9 +99,21 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: AppPrismaClient;
 };
 
-export const prisma: AppPrismaClient =
-  globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getPrisma(): AppPrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
 }
+
+/**
+ * Proxy: parece o PrismaClient de sempre (`prisma.vehicle.findMany(...)`)
+ * pros mais de 20 call sites existentes, mas só instancia de verdade
+ * (`getPrisma()`) no primeiro acesso a uma propriedade - nunca na importação
+ * do módulo.
+ */
+export const prisma: AppPrismaClient = new Proxy({} as AppPrismaClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getPrisma(), prop, receiver);
+  },
+});
