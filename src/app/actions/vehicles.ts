@@ -151,6 +151,25 @@ export async function removeVehiclePhoto(photoId: string): Promise<void> {
   revalidateVehicle(photo.vehicle.slug);
 }
 
+export async function removeVehiclePhotos(
+  photoIds: string[],
+): Promise<{ ok: boolean; error?: string; removed?: number }> {
+  await requireUser();
+  if (photoIds.length === 0) return { ok: false, error: "Nenhuma foto selecionada." };
+
+  const photos = await prisma.vehiclePhoto.findMany({
+    where: { id: { in: photoIds } },
+    include: { vehicle: { select: { slug: true } } },
+  });
+  if (photos.length === 0) return { ok: false, error: "Fotos não encontradas." };
+
+  await deleteVehiclePhotoObjects(photos.map((p) => p.url)).catch(() => {});
+  await prisma.vehiclePhoto.deleteMany({ where: { id: { in: photoIds } } });
+  revalidateVehicle(photos[0].vehicle.slug);
+
+  return { ok: true, removed: photos.length };
+}
+
 export async function moveVehiclePhoto(
   photoId: string,
   direction: "up" | "down",
