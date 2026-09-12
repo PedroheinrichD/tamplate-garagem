@@ -11,7 +11,7 @@ acento vermelho puxado da fachada da loja. Referência de tom: marca automotiva,
 não marketplace.
 
 Ligado ao MySQL da Aiven via Prisma (estoque, leads, depoimentos, config).
-Painel admin (`/admin`, Supabase Auth) faz o CRUD de veículos e o upload das
+Painel admin (`/admin`, Better Auth) faz o CRUD de veículos e o upload das
 fotos (Supabase Storage). Fotos de veículo do seed são `picsum` (dev) até o
 admin subir as reais; hero/fachada/mapa ainda usam `Placeholder`.
 
@@ -52,7 +52,7 @@ npm run db:test      # testa a conexão com o Postgres do Supabase
 npm run db:verify    # confere tabelas / enums / FKs / índices no banco
 npm run db:seed      # (re)popula veículos, fotos, depoimentos, config (idempotente)
 npm run db:studio    # abre o Prisma Studio
-npm run admin:create # cria o usuário admin no Supabase Auth a partir do .env
+npm run admin:create # cria o usuário admin (Better Auth) a partir do .env
 npx prisma migrate dev --name <x>   # nova migration (Session pooler)
 npx prisma generate  # regenera o Prisma Client (roda no postinstall também)
 ```
@@ -81,9 +81,10 @@ src/
     admin/              painel (fora do (site), shell próprio, tudo requireUser)
       layout.tsx  login/  page.tsx (stats)  destaques/  leads/  config/
       veiculos/  veiculos/novo/  veiculos/[id]/  (CRUD + fotos)
+    api/auth/[...all]/route.ts   toNextJsHandler(auth) - rotas do Better Auth
     actions/
       leads.ts     "use server" - submitContact/Trade/InterestLead
-      auth.ts      "use server" - signIn / signOut (Supabase Auth)
+      auth.ts      "use server" - signIn / signOut (Better Auth)
       vehicles.ts  "use server" - saveVehicle, deleteVehicle, upload/move/removePhoto,
                    setFeaturedPosition, clearFeaturedPosition
       config.ts    "use server" - updateSiteConfig
@@ -104,7 +105,8 @@ src/
   lib/
     site.ts            defaults institucionais (fallback do getSiteConfig)
     site-config.ts     server-only: getSiteConfig() (tabela configuracoes + fallback)
-    db.ts              PrismaClient server-only + adapter pg + omit dos campos admin
+    db.ts              PrismaClient server-only + adapter mariadb (MySQL/Aiven) + omit
+                       dos campos admin
     vehicles.ts        server-only, Prisma. get* + toVehicle()
     vehicle-format.ts  puro/isomórfico: formatPrice/Mileage/Year, filterVehicles
     vehicle-schema.ts  zod + options do form de veículo (isomórfico)
@@ -112,12 +114,14 @@ src/
     content.ts         server-only: getTestimonials()
     leads.ts           server-only: valida (zod) + grava leads
     admin.ts           server-only: consultas do painel (+ getVehicleForAdmin)
-    auth.ts            server-only: getCurrentUser / requireUser
-    supabase/          config, server, client, storage (Auth SSR + upload de fotos)
+    better-auth.ts     server-only: instância betterAuth() (Prisma adapter, MySQL)
+    auth.ts            server-only: getCurrentUser / requireUser (usa better-auth.ts)
+    supabase/          config, storage (upload de fotos - Auth não usa mais Supabase)
     useIsomorphicLayoutEffect.ts
 
-prisma/schema.prisma   modelos do banco (ver "Banco de dados")
-prisma/migrations/     20260910174458_init
+prisma/schema.prisma   modelos do banco (ver "Banco de dados") + user/session/account/
+                       verification (Better Auth)
+prisma/migrations/     init (MySQL) + add_better_auth
 prisma/seed.mjs        dados iniciais (npm run db:seed)
 prisma.config.ts       config do Prisma 7 (schema + URL de migrations, lê do .env)
 scripts/               db-test.mjs, db-verify.mjs, create-admin.mjs
@@ -299,11 +303,26 @@ consome de:
 `vehicleId` quando há veículo) e ainda abrem o WhatsApp. **Nenhuma leitura
 pública de `leads`** — só `src/lib/admin.ts`, dentro de `/admin`.
 
-**Auth / admin (Supabase Auth, sem Better Auth, sem auth própria):**
-- `src/lib/supabase/{config,server,client,storage}.ts`. `src/proxy.ts`
-  (ex-`middleware.ts`) protege `/admin/*` (`matcher`) e renova a sessão. Sem
-  Supabase configurado, `/admin/*` (menos `/admin/login`) redireciona ao login.
-- `src/lib/auth.ts` — `getCurrentUser()` (nunca lança), `requireUser()` (redirect).
+**Auth / admin (Better Auth, sem Supabase Auth, painel de um usuário só):**
+- `src/lib/better-auth.ts` — instância `betterAuth()` com `prismaAdapter(prisma,
+  { provider: "mysql" })` (reusa o `prisma` de `src/lib/db.ts`; o `omit` global
+  de lá só afeta `Vehicle`, não afeta `user`/`session`/`account`).
+  `emailAndPassword: { enabled: true, disableSignUp: true }` — login habilitado,
+  **autorregistro desligado** (`disableSignUp`, checado no próprio handler da
+  rota `/api/auth/sign-up/email`; único jeito de criar usuário é
+  `npm run admin:create`, que roda `auth.api.signUpEmail` fora dessa restrição
+  numa instância à parte, só no script). Plugin `nextCookies()` **tem que ser o
+  último** da lista: é ele quem propaga o cookie de sessão pro `next/headers`
+  quando `auth.api.signInEmail`/`signOut` são chamados de dentro de uma Server
+  Action (sem ele o cookie não seria setado).
+- `src/app/api/auth/[...all]/route.ts` — `toNextJsHandler(auth)`, expõe as
+  rotas do Better Auth (`/api/auth/sign-in/email`, `/sign-out`, etc.).
+- `src/proxy.ts` (ex-`middleware.ts`) protege `/admin/*` (`matcher`) chamando
+  `auth.api.getSession()` direto (Next 16 roda Proxy em runtime **Node.js** por
+  padrão, então dá pra bater no banco ali sem os truques de Edge runtime que
+  versões antigas do Next exigiriam).
+- `src/lib/auth.ts` — `getCurrentUser()` (nunca lança, usa `auth.api.getSession`
+  com `headers()` do `next/headers`), `requireUser()` (redirect pro login).
 - Route group `src/app/(site)/` = shell público (SmoothScroll + header + footer);
   `src/app/admin/` fora dele, shell próprio. `layout.tsx` raiz virou só
   `<html><body>`.
@@ -328,14 +347,19 @@ pública de `leads`** — só `src/lib/admin.ts`, dentro de `/admin`.
   `picsum` do seed são descartáveis — o admin substitui.
 - `/admin/config` edita `configuracoes` (`src/app/actions/config.ts` +
   `src/lib/config-schema.ts`).
-- `.env` (formato novo de API keys do Supabase, `sb_...`):
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY` = a **publishable key** (`sb_publishable_...`,
-  browser-safe, substitui a antiga anon). `SUPABASE_SERVICE_ROLE_KEY` = a
-  **secret key** (`sb_secret_...`, substitui service_role) — segredo, sem
-  `NEXT_PUBLIC_`, usada por `admin:create` e pelo upload de fotos.
-- Usuário admin: `beneventos@gmail.com` (criado via `admin:create`). Fluxo
-  verificado ponta a ponta: login → dashboard/CRUD → upload de foto real
-  (PhotoManager → action → bucket `veiculos` → `veiculo_fotos`).
+- `.env`: `BETTER_AUTH_SECRET` (32+ chars de alta entropia — trocar invalida
+  todas as sessões) e `BETTER_AUTH_URL` (origem pública da app, usada em
+  callbacks/origin checks). `SUPABASE_SERVICE_ROLE_KEY` (`sb_secret_...`,
+  formato novo de API key) continua só para o upload de fotos — não é mais
+  usada para Auth.
+- Usuário admin: `admingaragem@gmail.com` (criado via `admin:create`, que roda
+  `auth.api.signUpEmail` numa instância local do Better Auth sem
+  `disableSignUp`). Fluxo verificado ponta a ponta com requests reais
+  simulando o formulário (multipart, protocolo de Server Action do Next.js):
+  login → cookie `better-auth.session_token` setado (`HttpOnly`, `SameSite=Lax`)
+  → dashboard mostra o e-mail da sessão → `/admin/login` com sessão redireciona
+  pro dashboard → logout limpa os 3 cookies do Better Auth e redireciona pro
+  login → `/admin` sem sessão redireciona pro login (307).
 
 **Tabelas** (nomes em pt-BR via `@@map`; modelos/campos em inglês para casar
 com `src/types/vehicle.ts`):
@@ -357,16 +381,19 @@ com `src/types/vehicle.ts`):
 5. `configuracoes` — `SiteConfig`: linha única (`id = "default"`). Lida por
    `getSiteConfig()` com fallback para `src/lib/site.ts`; editável em
    `/admin/config`.
+6. `user` / `session` / `account` / `verification` — tabelas-núcleo do Better
+   Auth (geradas por `npx auth generate`, ver "Auth / admin"). `account` guarda
+   o hash da senha (`providerId: "credential"`); `session.token` é o que vira
+   o cookie `better-auth.session_token`. Sem `@@map` pt-BR (nomes já vêm em
+   minúsculo do gerador).
 
-**Status:** migration `20260912132912_init` aplicada na Aiven (MySQL 8.4.8).
+**Status:** migrations `init` (schema de veículos/leads/etc., MySQL) e
+`add_better_auth` (tabelas do Better Auth) aplicadas na Aiven (MySQL 8.4.8).
 As migrations Postgres antigas foram descartadas na migração de banco (SQL
-Postgres não roda em MySQL; histórico reiniciado). `db:verify`: 6 tabelas
-(5 do app + `_prisma_migrations`) + 6 enums (colunas `ENUM` nativas, com
-acentuação preservada) + 2 FKs + 17 índices (inclui o `@unique` de
-`featuredPosition`; um a mais que no Postgres porque o InnoDB cria índice
-automático pra coluna de FK). Seed: 14 veículos, 89 fotos (picsum, dev), 4
-depoimentos, 1 config - conferido campo a campo, batendo com o Postgres
-original.
+Postgres não roda em MySQL; histórico reiniciado). `db:verify`: 6 enums
+(colunas `ENUM` nativas, com acentuação preservada) + índices/FKs batendo com
+o schema. Seed: 14 veículos, 89 fotos (picsum, dev), 4 depoimentos, 1 config -
+conferido campo a campo, batendo com o Postgres original.
 `db:test` / `tsc` / `eslint` / `next build` passam. `npm audit`: 0
 vulnerabilidades.
 
@@ -374,13 +401,6 @@ Migrations futuras: `prisma migrate dev --name <x>` (usa `DATABASE_URL`).
 
 ## Pendências
 
-0. **Supabase Auth/Storage sem credenciais no `.env`**: `NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` não estão
-   preenchidas hoje. Sem elas, `/admin/login` não autentica e o upload de
-   fotos fica indisponível (o resto do CRUD funciona normalmente, avisos já
-   tratados em `isSupabaseConfigured`/`isServiceRoleConfigured`). Independente
-   do banco de dados - só falta colar os valores reais do projeto Supabase no
-   `.env`.
 1. **Fotos reais dos veículos**: o admin sobe pelo `PhotoManager`
    (`/admin/veiculos/[id]`); as `picsum` do seed são só demo, o admin substitui.
 2. **Dados da loja**: `configuracoes` está seedada com os placeholders do
