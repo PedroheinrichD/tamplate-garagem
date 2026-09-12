@@ -248,18 +248,29 @@ puros de `src/lib/vehicle-format.ts`. Nada de Prisma nos Client Components.
   (TLS obrigatório na Aiven) e `connect_timeout=15` (o default do engine é
   curto demais pro round-trip até a Aiven).
 - Runtime: `src/lib/db.ts` parseia `DATABASE_URL` e monta um `PoolConfig` pro
-  adapter `PrismaMariaDb` (`ssl: { ca, rejectUnauthorized: true }`, CA lido de
-  `certs/ca.pem`, `connectTimeout: 15000`) - o driver `mariadb` não aceita CA
-  customizado numa connection string simples, só via objeto. `import
-  "server-only"` no topo: o build quebra se for importado de um Client
-  Component. `DATABASE_URL` não tem prefixo `NEXT_PUBLIC_`, nunca vai para o
-  browser.
+  adapter `PrismaMariaDb` (`ssl: { ca, rejectUnauthorized: true }`,
+  `connectTimeout: 15000`) - o driver `mariadb` não aceita CA customizado numa
+  connection string simples, só via objeto. `import "server-only"` no topo: o
+  build quebra se for importado de um Client Component. `DATABASE_URL` não tem
+  prefixo `NEXT_PUBLIC_`, nunca vai para o browser.
 - **Conexão (`.env`):** `DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DATABASE"`,
   uma única URL (sem split pooler). As peças soltas (`DB_HOST`, `DB_PORT`,
   `DB_USER`, `DB_PASSWORD`, `DB_NAME`) continuam no `.env` como referência.
-- **CA certificate:** `certs/ca.pem` (baixado no painel da Aiven), coberto
-  pelo `*.pem` do `.gitignore` - cada ambiente de deploy precisa desse arquivo
-  presente (ele não vai pro git).
+- **CA certificate, dois caminhos** (função `readCaCert()`, duplicada em
+  `src/lib/db.ts` e em cada script standalone - mesmo padrão de duplicação já
+  usado pra criação do client Prisma):
+  - **Dev local:** arquivo `certs/ca.pem` (baixado no painel da Aiven),
+    coberto pelo `*.pem` do `.gitignore` - não vai pro git.
+  - **Produção (Vercel etc., sem filesystem persistente pra esse arquivo):**
+    env var `DB_CA_CERT` com o PEM inteiro colado como "Secret" - a Vercel
+    preserva as quebras de linha; se vier com `\n` escapado em vez de quebra
+    real, `readCaCert()` desescapa. `DB_CA_CERT`, quando setada, tem
+    prioridade sobre o arquivo.
+  - Exceção: o schema engine da Prisma (`prisma.config.ts`, usado por
+    `migrate`/`db pull`/`studio`) só aceita **caminho de arquivo** no
+    `sslcert` da URL, não o conteúdo direto - então rodar migration contra o
+    banco de produção continua exigindo `certs/ca.pem` presente localmente
+    (não é afetado por isso: `next build` não aciona migration nenhuma).
 - **Campos administrativos de `Vehicle`** (`licensePlate`, `renavam`, `chassis`,
   `fipeCode`, `purchaseCost`, `internalNotes`): `omit` global no `PrismaClient`
   (`VEHICLE_ADMIN_FIELDS` em `src/lib/db.ts`). Toda query os exclui por padrão;

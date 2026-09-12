@@ -28,21 +28,34 @@ if (!connectionString) {
 }
 
 /**
+ * CA da Aiven: em dev, lido do arquivo `certs/ca.pem` (gitignored). Em
+ * produção (Vercel etc.) não existe filesystem persistente com esse arquivo,
+ * então lê de `DB_CA_CERT` (env var "Secret" com o PEM colado inteiro - a
+ * Vercel preserva as quebras de linha; se vier com `\n` escapado em vez de
+ * quebra real, desescapamos).
+ */
+function readCaCert(): string {
+  const fromEnv = process.env.DB_CA_CERT;
+  if (fromEnv) return fromEnv.includes("\\n") ? fromEnv.replace(/\\n/g, "\n") : fromEnv;
+
+  const caPath = join(process.cwd(), "certs", "ca.pem");
+  try {
+    return readFileSync(caPath, "utf8");
+  } catch {
+    throw new Error(
+      `Certificado CA da Aiven não encontrado. Defina DB_CA_CERT no .env (produção) ou salve o arquivo em ${caPath} (dev local).`,
+    );
+  }
+}
+
+/**
  * A Aiven exige TLS. O driver `mariadb` só aceita um CA customizado via
  * objeto de config (não dá pra passar `ca` numa connection string simples),
  * então parseamos a URL e montamos o PoolConfig manualmente.
  */
 function buildPoolConfig(raw: string) {
   const url = new URL(raw);
-  const caPath = join(process.cwd(), "certs", "ca.pem");
-  let ca: string;
-  try {
-    ca = readFileSync(caPath, "utf8");
-  } catch {
-    throw new Error(
-      `Certificado CA da Aiven não encontrado em ${caPath}. Baixe o CA certificate no painel da Aiven e salve nesse caminho.`,
-    );
-  }
+  const ca = readCaCert();
   return {
     host: url.hostname,
     port: Number(url.port),

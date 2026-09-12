@@ -29,6 +29,12 @@ if (missing.length) {
   process.exit(1);
 }
 
+function readCaCert() {
+  const fromEnv = process.env.DB_CA_CERT;
+  if (fromEnv) return fromEnv.includes("\\n") ? fromEnv.replace(/\\n/g, "\n") : fromEnv;
+  return readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8");
+}
+
 function buildPoolConfig(raw) {
   const url = new URL(raw);
   return {
@@ -38,7 +44,7 @@ function buildPoolConfig(raw) {
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ""),
     ssl: {
-      ca: readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8"),
+      ca: readCaCert(),
       rejectUnauthorized: true,
     },
     connectTimeout: 15000,

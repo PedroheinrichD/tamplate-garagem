@@ -14,9 +14,13 @@ if (!migrationUrl) {
 }
 
 // MySQL/Aiven exige TLS. sslaccept=strict valida o certificado do servidor
-// contra o CA abaixo (sslcert = caminho pro CA, nao um cert de cliente).
-// O schema engine (migrate/db pull/studio) le esses parametros direto da URL;
-// o runtime (src/lib/db.ts) monta o mesmo TLS via objeto, ver detalhes la.
+// contra o CA abaixo (sslcert = caminho pro CA, nao um cert de cliente). O
+// schema engine so aceita um CAMINHO DE ARQUIVO aqui (diferente do runtime em
+// src/lib/db.ts, que tambem aceita o conteudo via env DB_CA_CERT) - por isso
+// `prisma migrate`/`db pull`/`studio` contra o banco de producao precisam
+// rodar localmente, com certs/ca.pem presente no disco (nao rodam no build
+// da Vercel; o `next build` do package.json nao aciona migration nenhuma).
+
 const url = new URL(migrationUrl);
 url.searchParams.set("sslaccept", "strict");
 url.searchParams.set("sslcert", "certs/ca.pem");

@@ -3,7 +3,7 @@
 // Uso: npm run db:seed
 //
 // As fotos usam picsum.photos (serviço público real de imagens para
-// desenvolvimento). Substituir por uploads no Supabase Storage quando o
+// desenvolvimento). Substituir por uploads no Cloudinary quando o
 // cliente enviar as fotos reais dos veículos.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +11,12 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 process.loadEnvFile(".env");
+
+function readCaCert() {
+  const fromEnv = process.env.DB_CA_CERT;
+  if (fromEnv) return fromEnv.includes("\\n") ? fromEnv.replace(/\\n/g, "\n") : fromEnv;
+  return readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8");
+}
 
 function buildPoolConfig(raw) {
   const url = new URL(raw);
@@ -21,7 +27,7 @@ function buildPoolConfig(raw) {
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ""),
     ssl: {
-      ca: readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8"),
+      ca: readCaCert(),
       rejectUnauthorized: true,
     },
     connectTimeout: 15000,

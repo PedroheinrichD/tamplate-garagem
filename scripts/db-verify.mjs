@@ -6,6 +6,12 @@ import mariadb from "mariadb";
 
 process.loadEnvFile(".env");
 
+function readCaCert() {
+  const fromEnv = process.env.DB_CA_CERT;
+  if (fromEnv) return fromEnv.includes("\\n") ? fromEnv.replace(/\\n/g, "\n") : fromEnv;
+  return readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8");
+}
+
 const url = new URL(process.env.DATABASE_URL);
 const database = url.pathname.replace(/^\//, "");
 const conn = await mariadb.createConnection({
@@ -15,7 +21,7 @@ const conn = await mariadb.createConnection({
   password: decodeURIComponent(url.password),
   database,
   ssl: {
-    ca: readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8"),
+    ca: readCaCert(),
     rejectUnauthorized: true,
   },
   connectTimeout: 15000,
