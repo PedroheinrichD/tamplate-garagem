@@ -9,7 +9,7 @@ import { vehicleSchema } from "@/lib/vehicle-schema";
 import {
   uploadVehiclePhoto,
   deleteVehiclePhotoObjects,
-} from "@/lib/supabase/storage";
+} from "@/lib/cloudinary";
 
 export type VehicleFormState = {
   ok: boolean;

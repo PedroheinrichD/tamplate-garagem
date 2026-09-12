@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CaretLeft, ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
 import { requireUser } from "@/lib/auth";
 import { getVehicleForAdmin } from "@/lib/admin";
-import { isServiceRoleConfigured } from "@/lib/supabase/config";
+import { isCloudinaryConfigured } from "@/lib/cloudinary";
 import { VehicleForm } from "@/components/admin/VehicleForm";
 import { PhotoManager } from "@/components/admin/PhotoManager";
 import { DeleteVehicleButton } from "@/components/admin/DeleteVehicleButton";
@@ -18,7 +18,7 @@ export default async function EditarVeiculoPage({
   const vehicle = await getVehicleForAdmin(id);
   if (!vehicle) notFound();
 
-  const storageOn = isServiceRoleConfigured();
+  const storageOn = isCloudinaryConfigured();
 
   return (
     <div className="flex flex-col gap-10">
@@ -54,7 +54,9 @@ export default async function EditarVeiculoPage({
           ) : (
             <div className="rounded border border-border bg-surface p-4 text-[0.85rem] text-fg-dim">
               Upload de fotos indisponível: configure{" "}
-              <code className="text-fg">SUPABASE_SERVICE_ROLE_KEY</code> no{" "}
+              <code className="text-fg">CLOUDINARY_CLOUD_NAME</code>,{" "}
+              <code className="text-fg">CLOUDINARY_API_KEY</code> e{" "}
+              <code className="text-fg">CLOUDINARY_API_SECRET</code> no{" "}
               <code className="text-fg">.env</code>. As fotos atuais (
               {vehicle.photos.length}) continuam valendo.
             </div>

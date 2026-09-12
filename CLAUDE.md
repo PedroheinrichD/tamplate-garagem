@@ -12,8 +12,9 @@ não marketplace.
 
 Ligado ao MySQL da Aiven via Prisma (estoque, leads, depoimentos, config).
 Painel admin (`/admin`, Better Auth) faz o CRUD de veículos e o upload das
-fotos (Supabase Storage). Fotos de veículo do seed são `picsum` (dev) até o
-admin subir as reais; hero/fachada/mapa ainda usam `Placeholder`.
+fotos (Cloudinary). Fotos de veículo do seed são `picsum` (dev) até o admin
+subir as reais; hero/fachada/mapa ainda usam `Placeholder`. Sem Supabase em
+nenhuma camada (banco, auth e storage já foram todos substituídos).
 
 ## Stack
 
@@ -48,7 +49,7 @@ npm run build
 npx tsc --noEmit     # checagem de tipos
 npx eslint src       # lint
 npx next typegen     # regenera PageProps/LayoutProps se preciso
-npm run db:test      # testa a conexão com o Postgres do Supabase
+npm run db:test      # testa a conexão com o MySQL da Aiven
 npm run db:verify    # confere tabelas / enums / FKs / índices no banco
 npm run db:seed      # (re)popula veículos, fotos, depoimentos, config (idempotente)
 npm run db:studio    # abre o Prisma Studio
@@ -116,7 +117,7 @@ src/
     admin.ts           server-only: consultas do painel (+ getVehicleForAdmin)
     better-auth.ts     server-only: instância betterAuth() (Prisma adapter, MySQL)
     auth.ts            server-only: getCurrentUser / requireUser (usa better-auth.ts)
-    supabase/          config, storage (upload de fotos - Auth não usa mais Supabase)
+    cloudinary.ts      server-only: upload/delete de fotos (Cloudinary)
     useIsomorphicLayoutEffect.ts
 
 prisma/schema.prisma   modelos do banco (ver "Banco de dados") + user/session/account/
@@ -216,7 +217,7 @@ intencional, guiando a ordem de leitura.
 
 ## Camada de dados
 
-O site roda ligado ao PostgreSQL do Supabase (ver "Banco de dados"). Toda leitura
+O site roda ligado ao MySQL da Aiven (ver "Banco de dados"). Toda leitura
 passa por `src/lib/{vehicles,content,site-config,admin}.ts` (server-only) ou pelos
 puros de `src/lib/vehicle-format.ts`. Nada de Prisma nos Client Components.
 
@@ -266,7 +267,7 @@ puros de `src/lib/vehicle-format.ts`. Nada de Prisma nos Client Components.
   os lê.
 - `postinstall` roda `prisma generate`. Scripts: `db:test` (conexão),
   `db:verify` (tabelas/enums/FKs/índices via `information_schema`), `db:seed`,
-  `db:studio`, `admin:create` (cria o usuário admin no Supabase Auth a partir
+  `db:studio`, `admin:create` (cria o usuário admin no Better Auth a partir
   do `.env`).
 - Credenciais só em `.env` (coberto por `.gitignore`, padrão `.env*`).
 - **Vulnerabilidade conhecida do driver `mariadb`:** a versão que
@@ -294,8 +295,7 @@ consome de:
   reflete o banco. `/admin/*` também.
 - `VehicleImage` renderiza `veiculo_fotos` via `next/image` (hosts em
   `next.config.ts` `images.remotePatterns`: `picsum.photos` para o seed de dev,
-  `*.supabase.co/storage/v1/object/public/**` para as reais); sem foto cai no
-  `Placeholder`.
+  `res.cloudinary.com` para as reais); sem foto cai no `Placeholder`.
 
 **Leads:** `src/lib/leads.ts` (`server-only`, valida com `zod`) +
 `src/app/actions/leads.ts` (`"use server"`). `ContactForm`, `TradeIn` e
@@ -339,19 +339,23 @@ pública de `leads`** — só `src/lib/admin.ts`, dentro de `/admin`.
   (`getFeaturedVehicles`) só mostra quem está com `status: AVAILABLE`; se o
   veículo escolhido sair de disponível, o slot mostra um aviso mas não limpa
   sozinho — o admin troca manualmente.
-- **Fotos = upload do admin.** `src/lib/supabase/storage.ts` (service_role,
-  server-only) sobe para o bucket público `veiculos`, grava url/alt/position em
-  `veiculo_fotos`. `PhotoManager` faz upload múltiplo, reordenar (setas) e
-  remover. Precisa de `SUPABASE_SERVICE_ROLE_KEY` no `.env`; sem ela a tela de
-  edição mostra aviso e some o upload (o resto do CRUD funciona). As fotos
-  `picsum` do seed são descartáveis — o admin substitui.
+- **Fotos = upload do admin, via Cloudinary.** `src/lib/cloudinary.ts`
+  (server-only, `CLOUDINARY_API_SECRET` nunca no client) sobe pra pasta
+  `veiculos/<slug>` de cada veículo (`cloudinary.uploader.upload_stream`,
+  `public_id` = UUID aleatório), grava url/alt/position em `veiculo_fotos`.
+  Deletar extrai o `public_id` de volta a partir da própria URL salva (regex
+  em cima de `/upload/(v<versão>/)?<public_id>.<ext>` — não guardamos o
+  `public_id` num campo separado, igual já era feito com o path do Supabase
+  Storage antes). `PhotoManager` faz upload múltiplo, reordenar (setas) e
+  remover. Precisa de `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` +
+  `CLOUDINARY_API_SECRET` no `.env`; sem eles a tela de edição mostra aviso e
+  some o upload (o resto do CRUD funciona). As fotos `picsum` do seed são
+  descartáveis — o admin substitui.
 - `/admin/config` edita `configuracoes` (`src/app/actions/config.ts` +
   `src/lib/config-schema.ts`).
 - `.env`: `BETTER_AUTH_SECRET` (32+ chars de alta entropia — trocar invalida
   todas as sessões) e `BETTER_AUTH_URL` (origem pública da app, usada em
-  callbacks/origin checks). `SUPABASE_SERVICE_ROLE_KEY` (`sb_secret_...`,
-  formato novo de API key) continua só para o upload de fotos — não é mais
-  usada para Auth.
+  callbacks/origin checks).
 - Usuário admin: `admingaragem@gmail.com` (criado via `admin:create`, que roda
   `auth.api.signUpEmail` numa instância local do Better Auth sem
   `disableSignUp`). Fluxo verificado ponta a ponta com requests reais
@@ -418,12 +422,9 @@ Migrations futuras: `prisma migrate dev --name <x>` (usa `DATABASE_URL`).
    nova aba).
 4. **Domínio**: `metadataBase` e `sitemap.ts` usam
    `https://beneventoveiculos.com.br` fixo.
-5. **RLS do bucket `veiculos`**: leitura pública OK; escrita só via secret key
-   no servidor (não há policy de escrita). Se um dia houver upload client-side,
-   criar policy para `authenticated`.
-6. **CRUD admin — próximos**: edição de `alt` da foto, status de lead
+5. **CRUD admin — próximos**: edição de `alt` da foto, status de lead
    (novo→fechado), `generateStaticParams`/ISR se quiser SSG parcial.
-7. **Destaques da home**: recriados pelo seed na migração pro MySQL/Aiven
+6. **Destaques da home**: recriados pelo seed na migração pro MySQL/Aiven
    (posições 1/2/3 = Tiggo 5X, Compass, Corolla). Se o admin trocar depois,
    usa `/admin/destaques` normalmente.
 
