@@ -27,10 +27,10 @@ function getHeroPictureProps() {
   };
   const {
     props: { srcSet: mobileSrcSet },
-  } = getImageProps({ ...common, src: "/images/tracker-hero-mobile-new.png" });
+  } = getImageProps({ ...common, src: "/images/tracker-mobile.png" });
   const {
     props: { srcSet: desktopSrcSet, ...desktopRest },
-  } = getImageProps({ ...common, src: "/images/tracker-hero-new.png" });
+  } = getImageProps({ ...common, src: "/images/tracker.png" });
   return { mobileSrcSet, desktopSrcSet, desktopRest };
 }
 
