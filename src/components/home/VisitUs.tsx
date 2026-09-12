@@ -12,6 +12,8 @@ import { getSiteConfig } from "@/lib/site-config";
 
 export async function VisitUs() {
   const site = await getSiteConfig();
+  if (!site.address.street) return null;
+
   const fullAddress = `${site.address.street} - ${site.address.district}, ${site.address.city} - ${site.address.state}, ${site.address.zip}`;
   const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`;
   return (
@@ -64,7 +66,7 @@ export async function VisitUs() {
                 <ButtonLink href="/estoque" size="lg">
                   Ver estoque
                 </ButtonLink>
-                <WhatsappCta size="lg" owner={0}>Falar no WhatsApp</WhatsappCta>
+                <WhatsappCta size="lg">Falar no WhatsApp</WhatsappCta>
               </div>
             </Reveal>
           </div>

@@ -50,7 +50,7 @@ export const getSiteConfig = cache(async (): Promise<SiteConfig> => {
   const pick = <T,>(value: T | null | undefined, fallback: T): T =>
     value === null || value === undefined || value === "" ? fallback : value;
 
-  const number = pick(row?.whatsappNumber, "5500000000000");
+  const number = pick(row?.whatsappNumber, site.whatsapp.number);
   const hours =
     Array.isArray(row?.hours) && row.hours.length
       ? (row.hours as { days: string; time: string }[])

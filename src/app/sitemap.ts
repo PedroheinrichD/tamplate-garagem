@@ -3,7 +3,7 @@ import { getVehicles } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
 
-const base = "https://beneventoveiculos.com.br";
+const base = "https://garagemveiculos.com.br";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = ["", "/estoque", "/sobre", "/contato"].map((path) => ({

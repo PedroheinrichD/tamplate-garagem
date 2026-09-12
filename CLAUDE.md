@@ -1,14 +1,14 @@
 @AGENTS.md
 
-# Benevento's Veículos - site institucional + catálogo
+# Garagem Veículos - site institucional + catálogo
 
 ## O que é
 
 Site de uma concessionária de seminovos (compra, venda, troca e financiamento).
-Cliente real: Benevento's Veículos (Instagram @beneventoveiculos, +700 carros
-vendidos em 3 anos). Visual cinematográfico escuro, alto contraste, um único
-acento vermelho puxado da fachada da loja. Referência de tom: marca automotiva,
-não marketplace.
+Template genérico "Garagem" (nome/telefone/endereço são placeholders, ver
+"Pendências"). Visual cinematográfico escuro, alto contraste, um único acento
+vermelho puxado da fachada da loja. Referência de tom: marca automotiva, não
+marketplace.
 
 Ligado ao MySQL da Aiven via Prisma (estoque, leads, depoimentos, config).
 Painel admin (`/admin`, Better Auth) faz o CRUD de veículos e o upload das
@@ -418,21 +418,44 @@ Migrations futuras: `prisma migrate dev --name <x>` (usa `DATABASE_URL`).
 
 1. **Fotos reais dos veículos**: o admin sobe pelo `PhotoManager`
    (`/admin/veiculos/[id]`); as `picsum` do seed são só demo, o admin substitui.
-2. **Dados da loja**: `configuracoes` está seedada com os placeholders do
-   `src/lib/site.ts`; o cliente/admin ajusta em `/admin/config`. Header/Hero e
-   CTAs de client ainda leem `site.ts` — sincronizar os dois ou migrar via
-   context depois.
+2. **Dados da loja (nome genérico "Garagem" por enquanto)**: `site.name`/
+   `shortName` = "Garagem Veículos"/"Garagem" (era "Benevento's"), telefone
+   único `5516997729706` (era o sistema de 2 donos alternados, removido — ver
+   abaixo), endereço vazio. `configuracoes` está seedada igual; o cliente/admin
+   ajusta em `/admin/config`. Header/Hero e CTAs de client ainda leem `site.ts`
+   — sincronizar os dois ou migrar via context depois. **Instagram ainda
+   aponta pro handle antigo** (`@beneventoveiculos`, não estava no escopo do
+   rebrand) — trocar quando tiver o real.
+   - **Telefone**: `WhatsappCta`/`whatsappHref` (`src/components/ui/WhatsappCta.tsx`)
+     usavam `whatsappOwners` (2 números fixos, intercalados via prop `owner`)
+     em todo botão de WhatsApp do client (Hero, Header, Footer, sobre,
+     Financing, estoque/[id], VisitUs). Removido: agora usam só
+     `site.whatsapp.number/href` (fonte única). O lado servidor
+     (`configuracoes.whatsappNumber`, usado por `getSiteConfig()` em
+     `/contato`/`SiteFooter`) já era um número só, sem mudança de estrutura -
+     só o valor.
+   - **Endereço**: `site.address.*` e `configuracoes.address*` estão vazios de
+     propósito ("leave nothing for now"). `pick()` em `getSiteConfig()` trata
+     string vazia como "usa o fallback de `site.ts`", que também está vazio -
+     então os dois lados ficam consistentes. Componentes que dependiam de
+     endereço escondem o que mostrariam: `VisitUs` (home) retorna `null`
+     inteiro quando `site.address.street` está vazio (a seção inteira - "Passa
+     na loja" - só faz sentido com endereço); `/contato` esconde o `<li>` de
+     Endereço e o card do mapa; `SiteFooter` esconde só o bloco de endereço na
+     coluna Contato. `WhatsApp`/Instagram/Horário continuam aparecendo normal
+     nesses três.
 3. **Fachada**: ainda usa `Placeholder` (não é foto de veículo). Trocar por
    `<Image>` quando o cliente enviar. O Hero já usa fotos reais
    (`public/images/tracker-hero.png` para telas ≥768px,
    `tracker-hero-mobile.png` abaixo disso via `<picture>` + `getImageProps`
-   para não distorcer/cortar mal no mobile). O mapa em `VisitUs` já usa um
-   embed real do Google Maps (`https://www.google.com/maps?q=<endereço>&output=embed`,
+   para não distorcer/cortar mal no mobile). O mapa em `VisitUs` usa um embed
+   real do Google Maps (`https://www.google.com/maps?q=<endereço>&output=embed`,
    sem API key) a partir do endereço em `site.address` /
-   `configuracoes.addressStreet` etc; clicar leva ao `mapsUrl` (Google Maps em
-   nova aba).
-4. **Domínio**: `metadataBase` e `sitemap.ts` usam
-   `https://beneventoveiculos.com.br` fixo.
+   `configuracoes.addressStreet` etc quando preenchido; clicar leva ao
+   `mapsUrl`. Com endereço vazio (estado atual) a seção inteira não renderiza
+   - ver item 2.
+4. **Domínio**: `metadataBase` e `sitemap.ts` usam `https://garagemveiculos.com.br`
+   fixo (placeholder, era `beneventoveiculos.com.br`).
 5. **CRUD admin — próximos**: edição de `alt` da foto, status de lead
    (novo→fechado), `generateStaticParams`/ISR se quiser SSG parcial.
 6. **Destaques da home**: recriados pelo seed na migração pro MySQL/Aiven

@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
         <div className="mx-auto flex max-w-sm flex-col gap-6">
           <div className="flex flex-col gap-1">
             <h1 className="font-display text-2xl font-semibold text-fg">
-              Painel Benevento&rsquo;s
+              Painel Garagem
             </h1>
             <p className="text-[0.9rem] text-fg-dim">Acesso restrito.</p>
           </div>

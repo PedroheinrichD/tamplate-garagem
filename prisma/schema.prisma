@@ -1,4 +1,4 @@
-// Benevento's Veículos - schema do banco (MySQL / Aiven)
+// Garagem Veículos - schema do banco (MySQL / Aiven)
 // A camada de acesso continua sendo src/lib/vehicles.ts; este schema descreve
 // o que o banco guarda. Nomes de tabela em pt-BR via @@map; modelos e campos
 // em inglês para casar com src/types/vehicle.ts.

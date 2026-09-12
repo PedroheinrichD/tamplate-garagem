@@ -20,7 +20,7 @@ export async function SiteFooter() {
           <div className="flex flex-col gap-4">
             <span className="flex items-baseline gap-2 font-display text-lg font-semibold text-fg">
               <span aria-hidden className="size-2 self-center bg-accent" />
-              Benevento&rsquo;s
+              Garagem
               <span className="text-[0.7rem] font-normal text-muted">
                 veículos
               </span>
@@ -66,20 +66,22 @@ export async function SiteFooter() {
 
           <div className="flex flex-col gap-3 text-sm">
             <p className="font-display font-medium text-fg">Contato</p>
-            <a
-              href={site.address.mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-start gap-2 text-fg-dim hover:text-fg"
-            >
-              <MapPin size={16} weight="light" className="mt-0.5 shrink-0" />
-              <span>
-                {site.address.street}
-                <br />
-                {site.address.district}, {site.address.city} -{" "}
-                {site.address.state}
-              </span>
-            </a>
+            {site.address.street ? (
+              <a
+                href={site.address.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-2 text-fg-dim hover:text-fg"
+              >
+                <MapPin size={16} weight="light" className="mt-0.5 shrink-0" />
+                <span>
+                  {site.address.street}
+                  <br />
+                  {site.address.district}, {site.address.city} -{" "}
+                  {site.address.state}
+                </span>
+              </a>
+            ) : null}
             <a
               href={waHref}
               target="_blank"

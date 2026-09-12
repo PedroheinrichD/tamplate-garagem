@@ -77,7 +77,7 @@ export function ContactForm() {
       "",
       values.mensagem,
     ].join("\n");
-    window.open(whatsappHref(msg, 1), "_blank", "noopener,noreferrer");
+    window.open(whatsappHref(msg), "_blank", "noopener,noreferrer");
     setSent(true);
   }
 
@@ -98,7 +98,7 @@ export function ContactForm() {
           também, se preferir adiantar por lá. Se não abriu, fale com a gente em{" "}
           <a
             className="text-accent hover:text-accent-hover"
-            href={whatsappHref(undefined, 1)}
+            href={whatsappHref()}
             target="_blank"
             rel="noopener noreferrer"
           >

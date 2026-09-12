@@ -45,7 +45,7 @@ export function WhyUs() {
     <section className="py-16 md:py-24">
       <Container width="wide">
         <SectionIntro
-          kicker="Por que a Benevento's"
+          kicker="Por que a Garagem"
           titleLines={["Seminovo sem", "letra miúda."]}
           lead="O que a gente faz para você assinar tranquilo e não voltar reclamando depois."
         />
@@ -85,7 +85,7 @@ export function WhyUs() {
               title="Loja física, de porta aberta"
               className="md:col-span-4"
             >
-              A Benevento&rsquo;s não é um perfil de anúncios. Tem endereço,
+              A Garagem não é um perfil de anúncios. Tem endereço,
               equipe fixa e {site.yearsActive} anos de rua. Venha tomar um café
               e ver os carros de perto.
             </Cell>

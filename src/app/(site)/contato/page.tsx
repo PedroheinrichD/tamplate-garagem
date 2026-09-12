@@ -15,7 +15,7 @@ import { getSiteConfig, whatsappLink } from "@/lib/site-config";
 export const metadata: Metadata = {
   title: "Contato",
   description:
-    "Fale com a Benevento's Veículos: WhatsApp, endereço, horário de funcionamento e Instagram.",
+    "Fale com a Garagem Veículos: WhatsApp, endereço, horário de funcionamento e Instagram.",
 };
 
 export default async function ContatoPage() {
@@ -47,15 +47,17 @@ export default async function ContatoPage() {
           <div className="flex flex-col gap-8">
             <Reveal stagger>
               <ul className="flex flex-col gap-5">
-                <li data-reveal-item className="flex items-start gap-3">
-                  <MapPin size={20} weight="light" className="mt-0.5 shrink-0 text-accent" />
-                  <div className="text-[0.95rem] text-fg-dim">
-                    <p className="text-fg">Endereço</p>
-                    {site.address.street} · {site.address.district}
-                    <br />
-                    {site.address.city} - {site.address.state}, {site.address.zip}
-                  </div>
-                </li>
+                {site.address.street ? (
+                  <li data-reveal-item className="flex items-start gap-3">
+                    <MapPin size={20} weight="light" className="mt-0.5 shrink-0 text-accent" />
+                    <div className="text-[0.95rem] text-fg-dim">
+                      <p className="text-fg">Endereço</p>
+                      {site.address.street} · {site.address.district}
+                      <br />
+                      {site.address.city} - {site.address.state}, {site.address.zip}
+                    </div>
+                  </li>
+                ) : null}
                 <li data-reveal-item className="flex items-start gap-3">
                   <Clock size={20} weight="light" className="mt-0.5 shrink-0 text-accent" />
                   <div className="text-[0.95rem] text-fg-dim">
@@ -98,17 +100,19 @@ export default async function ContatoPage() {
               </ul>
             </Reveal>
 
-            <Reveal variant="scale">
-              <a
-                href={site.address.mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                {/* TODO: incorporar mapa real da loja */}
-                <Placeholder label="Mapa da loja" ratio="4 / 3" />
-              </a>
-            </Reveal>
+            {site.address.mapsUrl ? (
+              <Reveal variant="scale">
+                <a
+                  href={site.address.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  {/* TODO: incorporar mapa real da loja */}
+                  <Placeholder label="Mapa da loja" ratio="4 / 3" />
+                </a>
+              </Reveal>
+            ) : null}
           </div>
         </div>
       </Container>

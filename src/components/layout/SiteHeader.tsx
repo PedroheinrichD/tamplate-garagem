@@ -18,7 +18,7 @@ function Wordmark({ onClick }: { onClick?: () => void }) {
         aria-hidden
         className="mb-[3px] size-2 shrink-0 self-center bg-accent transition-transform duration-300 ease-out group-hover:rotate-45"
       />
-      Benevento&rsquo;s
+      Garagem
       <span className="text-[0.7rem] font-normal text-muted">veículos</span>
     </Link>
   );

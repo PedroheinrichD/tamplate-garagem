@@ -34,7 +34,7 @@ export function AdminHeader({
         <div className="flex h-16 items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <span className="font-display text-sm font-semibold text-fg">
-              Benevento&rsquo;s · Painel
+              Garagem · Painel
             </span>
             <nav className="hidden items-center gap-4 sm:flex">
               {nav.map((item) => (

@@ -14,7 +14,7 @@ import { Magnetic } from "@/components/motion/Magnetic";
 import { site } from "@/lib/site";
 
 const HERO_PHOTO_ALT =
-  "Chevrolet Tracker branco estacionado na fachada da Benevento's Veículos";
+  "Chevrolet Tracker branco estacionado na fachada da Garagem Veículos";
 
 // Art direction: foto vertical dedicada no mobile (evita cortar/esticar a
 // foto pensada para paisagem) e a foto horizontal em telas maiores.
@@ -152,7 +152,7 @@ export function Hero() {
                   Ver estoque
                 </ButtonLink>
               </Magnetic>
-              <WhatsappCta size="lg" owner={1} message="Olá! Vi o site e quero ajuda para escolher um carro.">
+              <WhatsappCta size="lg" message="Olá! Vi o site e quero ajuda para escolher um carro.">
                 Falar no WhatsApp
               </WhatsappCta>
             </div>

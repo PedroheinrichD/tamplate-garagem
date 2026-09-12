@@ -1,17 +1,14 @@
 /**
- * Dados institucionais da concessionaria.
+ * Dados institucionais da concessionaria (template generico "Garagem").
  *
  * TODO (cliente): os campos marcados com PLACEHOLDER precisam dos dados reais
- * da Benevento's Veiculos antes de publicar. O que ja veio do Instagram do
- * cliente esta preenchido de verdade.
+ * antes de publicar.
  */
 
 export const site = {
-  name: "Benevento's Veículos",
-  shortName: "Benevento's",
-  // Do Instagram do cliente: "Compra, venda, troca e financia".
+  name: "Garagem Veículos",
+  shortName: "Garagem",
   tagline: "Compra, venda, troca e financiamento de seminovos.",
-  // Do Instagram do cliente: "Mais de 700 veículos vendidos em 3 anos!".
   soldCount: 700,
   yearsActive: 3,
 
@@ -22,21 +19,24 @@ export const site = {
 
   // PLACEHOLDER: numero de WhatsApp real do cliente (com DDI 55 + DDD).
   whatsapp: {
-    display: "(00) 00000-0000",
+    number: "5516997729706",
+    display: "(16) 99772-9706",
     // wa.me exige apenas digitos, com codigo do pais.
-    href: "https://wa.me/5500000000000",
+    href: "https://wa.me/5516997729706",
     defaultMessage:
       "Olá! Vim pelo site e quero falar sobre um veículo do estoque.",
   },
 
+  // PLACEHOLDER: endereco real da loja. Vazio por enquanto - os componentes
+  // que exibem endereco/mapa (VisitUs, /contato, SiteFooter) escondem esse
+  // bloco quando `street` esta vazio.
   address: {
-    street: "Av. Florêncio Terra, 1630",
-    district: "Centro",
-    city: "Itápolis",
-    state: "SP",
-    zip: "14900-000",
-    mapsUrl:
-      "https://www.google.com/maps/search/?api=1&query=Av.+Flor%C3%AAncio+Terra%2C+1630+-+Centro%2C+It%C3%A1polis+-+SP%2C+14900-000",
+    street: "",
+    district: "",
+    city: "",
+    state: "",
+    zip: "",
+    mapsUrl: "",
   },
 
   // PLACEHOLDER: horario real de funcionamento.
@@ -47,15 +47,8 @@ export const site = {
   ],
 
   // PLACEHOLDER: e-mail real de contato.
-  email: "contato@beneventoveiculos.com.br",
+  email: "contato@garagemveiculos.com.br",
 } as const;
-
-// Donos da loja que atendem os clientes pelo WhatsApp. Os botões que levam
-// ao WhatsApp intercalam entre os dois (index 0, 1, 0, 1...).
-export const whatsappOwners = [
-  { name: "Murilo", number: "5516996127633" },
-  { name: "Guilherme", number: "5516997358886" },
-] as const;
 
 export const nav = [
   { label: "Início", href: "/" },

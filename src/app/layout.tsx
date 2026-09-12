@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://beneventoveiculos.com.br"),
+  metadataBase: new URL("https://garagemveiculos.com.br"),
   title: {
     default: `${site.name} - Seminovos com procedência`,
     template: `%s - ${site.name}`,

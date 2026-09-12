@@ -79,7 +79,7 @@ export function TradeIn() {
     ]
       .filter(Boolean)
       .join("\n");
-    window.open(whatsappHref(msg, 1), "_blank", "noopener,noreferrer");
+    window.open(whatsappHref(msg), "_blank", "noopener,noreferrer");
     setSent(true);
   }
 
@@ -131,7 +131,7 @@ export function TradeIn() {
                   também, se quiser adiantar. Se o app não abriu, chame em {" "}
                   <a
                     className="text-accent hover:text-accent-hover"
-                    href={whatsappHref(undefined, 1)}
+                    href={whatsappHref()}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

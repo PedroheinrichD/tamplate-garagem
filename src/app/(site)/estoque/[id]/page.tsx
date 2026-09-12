@@ -120,7 +120,6 @@ export default async function VehiclePage({
                     size="lg"
                     variant="solid"
                     className="w-full"
-                    owner={1}
                     message={interestMsg}
                   >
                     Tenho interesse
@@ -128,7 +127,6 @@ export default async function VehiclePage({
                   <WhatsappCta
                     size="lg"
                     className="w-full"
-                    owner={0}
                     message={`Olá! Quero simular o financiamento do ${vehicle.brand} ${vehicle.model} ${vehicle.year}.`}
                   >
                     Simular financiamento

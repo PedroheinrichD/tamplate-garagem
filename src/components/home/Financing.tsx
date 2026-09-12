@@ -48,7 +48,7 @@ export function Financing() {
             </Reveal>
             <Reveal variant="fade-up">
               <div className="pt-2">
-                <WhatsappCta owner={0} message="Olá! Quero simular um financiamento.">
+                <WhatsappCta message="Olá! Quero simular um financiamento.">
                   Simular meu financiamento
                 </WhatsappCta>
               </div>

@@ -13,7 +13,7 @@ import {
 export const metadata: Metadata = {
   title: "Estoque de seminovos",
   description:
-    "Todos os seminovos disponíveis na Benevento's Veículos. Filtre por marca, carroceria e preço.",
+    "Todos os seminovos disponíveis na Garagem Veículos. Filtre por marca, carroceria e preço.",
 };
 
 export const dynamic = "force-dynamic";

@@ -1,4 +1,4 @@
-// Seed inicial do banco Benevento's Veículos.
+// Seed inicial do banco Garagem Veículos.
 // Idempotente (upsert por slug / id). Não apaga dados não relacionados.
 // Uso: npm run db:seed
 //
@@ -351,23 +351,22 @@ const testimonials = [
 
 // Espelha src/lib/site.ts. Campos PLACEHOLDER ficam como estão até o cliente enviar.
 const siteConfig = {
-  name: "Benevento's Veículos",
-  shortName: "Benevento's",
+  name: "Garagem Veículos",
+  shortName: "Garagem",
   tagline: "Compra, venda, troca e financiamento de seminovos.",
   soldCount: 700,
   yearsActive: 3,
   instagramHandle: "@beneventoveiculos",
   instagramUrl: "https://instagram.com/beneventoveiculos",
-  whatsappNumber: "5500000000000",
+  whatsappNumber: "5516997729706",
   whatsappMessage: "Olá! Vim pelo site e quero falar sobre um veículo do estoque.",
-  email: "contato@beneventoveiculos.com.br",
-  addressStreet: "Av. Florêncio Terra, 1630",
-  addressDistrict: "Centro",
-  addressCity: "Itápolis",
-  addressState: "SP",
-  addressZip: "14900-000",
-  mapsUrl:
-    "https://www.google.com/maps/search/?api=1&query=Av.+Flor%C3%AAncio+Terra%2C+1630+-+Centro%2C+It%C3%A1polis+-+SP%2C+14900-000",
+  email: "contato@garagemveiculos.com.br",
+  addressStreet: "",
+  addressDistrict: "",
+  addressCity: "",
+  addressState: "",
+  addressZip: "",
+  mapsUrl: "",
   hours: [
     { days: "Segunda a sexta", time: "08h30 às 18h30" },
     { days: "Sábado", time: "08h30 às 13h00" },

@@ -10,7 +10,7 @@ import { site } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Sobre a loja",
   description:
-    "A Benevento's Veículos é uma loja de rua de seminovos, com laudo cautelar em todo carro e mais de 700 vendas em 3 anos.",
+    "A Garagem Veículos é uma loja de rua de seminovos, com laudo cautelar em todo carro e mais de 700 vendas em 3 anos.",
 };
 
 const values = [
@@ -42,7 +42,7 @@ export default function SobrePage() {
             />
             <Reveal variant="fade-up" delay={0.15}>
               <p className="text-[1.1rem] leading-relaxed text-fg-dim">
-                A Benevento&rsquo;s Veículos nasceu para resolver a compra de
+                A Garagem Veículos nasceu para resolver a compra de
                 seminovo do jeito que a gente gostaria de ser atendido: carro
                 conferido, conversa direta e documento em ordem. Em{" "}
                 {site.yearsActive} anos foram mais de {site.soldCount} carros
@@ -58,7 +58,7 @@ export default function SobrePage() {
           <Reveal variant="rise">
             {/* TODO: foto real da loja / equipe / fachada */}
             <Placeholder
-              label="Fachada da loja Benevento's Veículos"
+              label="Fachada da loja Garagem Veículos"
               ratio="16 / 9"
             />
           </Reveal>
@@ -93,8 +93,10 @@ export default function SobrePage() {
             />
             <Reveal variant="fade-up">
               <p className="max-w-lg text-[1.02rem] text-fg-dim">
-                Estamos em {site.address.city} - {site.address.state}. Chega sem
-                agendar, dá uma volta no estoque e faz um test drive.
+                {site.address.city
+                  ? `Estamos em ${site.address.city} - ${site.address.state}. `
+                  : null}
+                Chega sem agendar, dá uma volta no estoque e faz um test drive.
               </p>
             </Reveal>
             <Reveal variant="fade-up">
@@ -102,7 +104,7 @@ export default function SobrePage() {
                 <ButtonLink href="/estoque" size="lg">
                   Ver estoque
                 </ButtonLink>
-                <WhatsappCta size="lg" owner={0}>Falar no WhatsApp</WhatsappCta>
+                <WhatsappCta size="lg">Falar no WhatsApp</WhatsappCta>
               </div>
             </Reveal>
           </div>

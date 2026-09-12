@@ -42,7 +42,7 @@ export function Services() {
       <Container width="wide">
         <SectionIntro
           titleLines={["Quatro formas de", "fazer negócio."]}
-          lead="Comprar, vender, trocar ou financiar. Na Benevento's tudo acontece no mesmo balcão, com a mesma equipe."
+          lead="Comprar, vender, trocar ou financiar. Na Garagem tudo acontece no mesmo balcão, com a mesma equipe."
         />
 
         <Reveal stagger className="mt-12">
