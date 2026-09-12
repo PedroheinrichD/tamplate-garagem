@@ -5,13 +5,31 @@
 // As fotos usam picsum.photos (serviço público real de imagens para
 // desenvolvimento). Substituir por uploads no Supabase Storage quando o
 // cliente enviar as fotos reais dos veículos.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 process.loadEnvFile(".env");
 
+function buildPoolConfig(raw) {
+  const url = new URL(raw);
+  return {
+    host: url.hostname,
+    port: Number(url.port),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\//, ""),
+    ssl: {
+      ca: readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8"),
+      rejectUnauthorized: true,
+    },
+    connectTimeout: 15000,
+  };
+}
+
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL),
+  adapter: new PrismaMariaDb(buildPoolConfig(process.env.DATABASE_URL)),
 });
 
 /** @type {Array<import("@prisma/client").Prisma.VehicleCreateInput & { photoCount: number }>} */

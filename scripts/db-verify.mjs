@@ -1,56 +1,82 @@
 // Verificação real das estruturas criadas pela migration.
 // Uso: node scripts/db-verify.mjs
-import pg from "pg";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import mariadb from "mariadb";
 
 process.loadEnvFile(".env");
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-await client.connect();
+const url = new URL(process.env.DATABASE_URL);
+const database = url.pathname.replace(/^\//, "");
+const conn = await mariadb.createConnection({
+  host: url.hostname,
+  port: Number(url.port),
+  user: decodeURIComponent(url.username),
+  password: decodeURIComponent(url.password),
+  database,
+  ssl: {
+    ca: readFileSync(join(process.cwd(), "certs", "ca.pem"), "utf8"),
+    rejectUnauthorized: true,
+  },
+  connectTimeout: 15000,
+});
 
-const q = (sql, params) => client.query(sql, params).then((r) => r.rows);
+const q = (sql, params) => conn.query(sql, params);
 
-const tables = await q(`
-  select table_name from information_schema.tables
-  where table_schema = 'public' and table_type = 'BASE TABLE'
-  order by table_name`);
+const tables = await q(
+  `select table_name as table_name from information_schema.tables
+   where table_schema = ? and table_type = 'BASE TABLE'
+   order by table_name`,
+  [database],
+);
 
-const enums = await q(`
-  select t.typname, string_agg(e.enumlabel, ', ' order by e.enumsortorder) as labels
-  from pg_type t
-  join pg_enum e on e.enumtypid = t.oid
-  join pg_namespace n on n.oid = t.typnamespace
-  where n.nspname = 'public'
-  group by t.typname order by t.typname`);
+const enums = await q(
+  `select table_name as table_name, column_name as column_name, column_type as column_type
+   from information_schema.columns
+   where table_schema = ? and data_type = 'enum'
+   order by table_name, column_name`,
+  [database],
+);
 
-const fks = await q(`
-  select con.conname, cl.relname as tabela, cf.relname as referencia, con.confdeltype as on_delete
-  from pg_constraint con
-  join pg_class cl on cl.oid = con.conrelid
-  join pg_class cf on cf.oid = con.confrelid
-  join pg_namespace n on n.oid = con.connamespace
-  where con.contype = 'f' and n.nspname = 'public'
-  order by con.conname`);
+const fks = await q(
+  `select
+     kcu.constraint_name as conname,
+     kcu.table_name as tabela,
+     kcu.referenced_table_name as referencia,
+     rc.delete_rule as on_delete
+   from information_schema.key_column_usage kcu
+   join information_schema.referential_constraints rc
+     on rc.constraint_schema = kcu.constraint_schema
+    and rc.constraint_name = kcu.constraint_name
+   where kcu.table_schema = ? and kcu.referenced_table_name is not null
+   order by kcu.constraint_name`,
+  [database],
+);
 
-const indexes = await q(`
-  select tablename, indexname, indexdef
-  from pg_indexes where schemaname = 'public'
-  order by tablename, indexname`);
+const indexes = await q(
+  `select distinct table_name as tablename, index_name as indexname
+   from information_schema.statistics
+   where table_schema = ?
+   order by table_name, index_name`,
+  [database],
+);
 
 const prismaMigrations = await q(
   `select migration_name, finished_at, applied_steps_count
-   from "_prisma_migrations" order by started_at`,
+   from _prisma_migrations order by started_at`,
 );
 
 console.log("TABELAS (" + tables.length + "):");
 tables.forEach((t) => console.log("  -", t.table_name));
 
 console.log("\nENUMS (" + enums.length + "):");
-enums.forEach((e) => console.log("  -", e.typname, "=", e.labels));
+enums.forEach((e) =>
+  console.log("  -", `${e.table_name}.${e.column_name}`, "=", e.column_type),
+);
 
 console.log("\nFOREIGN KEYS (" + fks.length + "):");
-const delMap = { a: "NO ACTION", r: "RESTRICT", c: "CASCADE", n: "SET NULL", d: "SET DEFAULT" };
 fks.forEach((f) =>
-  console.log(`  - ${f.conname}: ${f.tabela} -> ${f.referencia} (ON DELETE ${delMap[f.on_delete] || f.on_delete})`),
+  console.log(`  - ${f.conname}: ${f.tabela} -> ${f.referencia} (ON DELETE ${f.on_delete})`),
 );
 
 console.log("\nINDEXES (" + indexes.length + "):");
@@ -61,4 +87,4 @@ prismaMigrations.forEach((m) =>
   console.log(`  - ${m.migration_name} | steps=${m.applied_steps_count} | finished=${m.finished_at ? "sim" : "NAO"}`),
 );
 
-await client.end();
+await conn.end();

@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import type {
   Vehicle,
   FuelType,
@@ -70,8 +71,8 @@ type Row = {
   plateEnd: number;
   featuredPosition: number | null;
   status: string;
-  highlights: string[];
-  features: string[];
+  highlights: Prisma.JsonValue;
+  features: Prisma.JsonValue;
   description: string;
   photos?: { url: string; alt: string | null }[];
   _count?: { photos: number };
@@ -97,8 +98,8 @@ function toVehicle(row: Row): Vehicle {
     plateEnd: row.plateEnd,
     featuredPosition: row.featuredPosition,
     status: STATUS_LABEL[row.status] ?? "disponivel",
-    highlights: row.highlights,
-    features: row.features,
+    highlights: Array.isArray(row.highlights) ? (row.highlights as string[]) : [],
+    features: Array.isArray(row.features) ? (row.features as string[]) : [],
     description: row.description,
     photoCount: row._count?.photos ?? photos.length,
     photos,

@@ -1,10 +1,14 @@
 import "server-only";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 /**
- * Prisma Client (Prisma 7 + driver adapter pg / PostgreSQL do Supabase).
+ * Prisma Client (Prisma 7 + driver adapter @prisma/adapter-mariadb, que fala
+ * o protocolo MySQL). Conecta no MySQL da Aiven - nenhum servidor MariaDB
+ * envolvido, é só o nome do driver oficial da Prisma para esse wire protocol.
  *
  * - `import "server-only"` faz o build quebrar se este arquivo for importado
  *   de um Client Component. A DATABASE_URL nunca chega ao browser.
@@ -19,8 +23,36 @@ const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    "DATABASE_URL não definida. Configure a conexão do Supabase no .env.",
+    "DATABASE_URL não definida. Configure a conexão do MySQL/Aiven no .env.",
   );
+}
+
+/**
+ * A Aiven exige TLS. O driver `mariadb` só aceita um CA customizado via
+ * objeto de config (não dá pra passar `ca` numa connection string simples),
+ * então parseamos a URL e montamos o PoolConfig manualmente.
+ */
+function buildPoolConfig(raw: string) {
+  const url = new URL(raw);
+  const caPath = join(process.cwd(), "certs", "ca.pem");
+  let ca: string;
+  try {
+    ca = readFileSync(caPath, "utf8");
+  } catch {
+    throw new Error(
+      `Certificado CA da Aiven não encontrado em ${caPath}. Baixe o CA certificate no painel da Aiven e salve nesse caminho.`,
+    );
+  }
+  return {
+    host: url.hostname,
+    port: Number(url.port),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\//, ""),
+    ssl: { ca, rejectUnauthorized: true },
+    // Default do driver (~1s) é curto demais pro round-trip até a Aiven.
+    connectTimeout: 15000,
+  };
 }
 
 /** Campos de Vehicle exclusivamente administrativos - fora de toda query por padrão. */
@@ -35,7 +67,7 @@ export const VEHICLE_ADMIN_FIELDS = {
 
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg(connectionString),
+    adapter: new PrismaMariaDb(buildPoolConfig(connectionString)),
     omit: {
       vehicle: VEHICLE_ADMIN_FIELDS,
     },

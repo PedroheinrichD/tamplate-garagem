@@ -53,11 +53,17 @@ export async function getVehiclesForAdmin() {
 
 /** Um veículo (por id do banco) com fotos ordenadas e campos internos. */
 export async function getVehicleForAdmin(id: string) {
-  return prisma.vehicle.findUnique({
+  const vehicle = await prisma.vehicle.findUnique({
     where: { id },
     omit: UNHIDE_ADMIN,
     include: { photos: { orderBy: { position: "asc" } } },
   });
+  if (!vehicle) return null;
+  return {
+    ...vehicle,
+    highlights: Array.isArray(vehicle.highlights) ? (vehicle.highlights as string[]) : [],
+    features: Array.isArray(vehicle.features) ? (vehicle.features as string[]) : [],
+  };
 }
 
 /** Lista enxuta (capa + nome) para o seletor de destaques (/admin/destaques). */

@@ -10,10 +10,10 @@ vendidos em 3 anos). Visual cinematográfico escuro, alto contraste, um único
 acento vermelho puxado da fachada da loja. Referência de tom: marca automotiva,
 não marketplace.
 
-Ligado ao PostgreSQL do Supabase via Prisma (estoque, leads, depoimentos,
-config). Painel admin (`/admin`, Supabase Auth) faz o CRUD de veículos e o
-upload das fotos. Fotos de veículo do seed são `picsum` (dev) até o admin subir
-as reais; hero/fachada/mapa ainda usam `Placeholder`.
+Ligado ao MySQL da Aiven via Prisma (estoque, leads, depoimentos, config).
+Painel admin (`/admin`, Supabase Auth) faz o CRUD de veículos e o upload das
+fotos (Supabase Storage). Fotos de veículo do seed são `picsum` (dev) até o
+admin subir as reais; hero/fachada/mapa ainda usam `Placeholder`.
 
 ## Stack
 
@@ -224,32 +224,52 @@ puros de `src/lib/vehicle-format.ts`. Nada de Prisma nos Client Components.
 
 ### Banco de dados
 
-- **Engine:** PostgreSQL, hospedado no Supabase (projeto `vetqzeeefvqvxiekzokw`).
-- **ORM:** Prisma 7 (`prisma` + `@prisma/client` + `@prisma/adapter-pg` + `pg`).
+- **Engine:** MySQL, hospedado na Aiven.
+- **ORM:** Prisma 7 (`prisma` + `@prisma/client` + `@prisma/adapter-mariadb` +
+  `mariadb`). `@prisma/adapter-mariadb` é o driver adapter **oficial** da
+  Prisma 7 para o wire protocol MySQL (não existe `@prisma/adapter-mysql`
+  separado - MySQL e MariaDB falam o mesmo protocolo e a Prisma unificou os
+  dois nesse pacote). Não instala nem roda nenhum servidor MariaDB, só
+  conecta no MySQL da Aiven.
 
 **Arquitetura Prisma 7 (mudou):**
 - O schema fica em `prisma/schema.prisma`. O `datasource` só declara `provider`,
   **nunca a URL** (o Prisma 7 proíbe `url` no schema).
-- `prisma.config.ts` (raiz) usa `DIRECT_URL ?? DATABASE_URL` para CLI/migrations.
-  Carrega o `.env` com `process.loadEnvFile(".env")` (Prisma 7 não carrega `.env`
-  sozinho quando existe `prisma.config.ts`).
-- Runtime: `src/lib/db.ts` cria o `PrismaClient` com o adapter `PrismaPg`
-  (`new PrismaPg(process.env.DATABASE_URL)`). `import "server-only"` no topo:
-  o build quebra se for importado de um Client Component. `DATABASE_URL` não tem
-  prefixo `NEXT_PUBLIC_`, nunca vai para o browser.
-- **Conexões (`.env`):** `DATABASE_URL` = pooler **transaction** (`:6543`,
-  `?pgbouncer=true`) para o runtime; `DIRECT_URL` = pooler **session** (`:5432`)
-  para migrations (suporta DDL). O adapter pg não cacheia prepared statements por
-  padrão → compatível com o pgbouncer transaction. Ambos testados.
+- `prisma.config.ts` (raiz) usa `DATABASE_URL` para CLI/migrations (a Aiven não
+  tem o split pooler transaction/session que o Supabase tinha, então não há
+  mais `DIRECT_URL`). Carrega o `.env` com `process.loadEnvFile(".env")`
+  (Prisma 7 não carrega `.env` sozinho quando existe `prisma.config.ts`). A
+  URL usada pelo schema engine ganha `sslaccept=strict&sslcert=certs/ca.pem`
+  (TLS obrigatório na Aiven) e `connect_timeout=15` (o default do engine é
+  curto demais pro round-trip até a Aiven).
+- Runtime: `src/lib/db.ts` parseia `DATABASE_URL` e monta um `PoolConfig` pro
+  adapter `PrismaMariaDb` (`ssl: { ca, rejectUnauthorized: true }`, CA lido de
+  `certs/ca.pem`, `connectTimeout: 15000`) - o driver `mariadb` não aceita CA
+  customizado numa connection string simples, só via objeto. `import
+  "server-only"` no topo: o build quebra se for importado de um Client
+  Component. `DATABASE_URL` não tem prefixo `NEXT_PUBLIC_`, nunca vai para o
+  browser.
+- **Conexão (`.env`):** `DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DATABASE"`,
+  uma única URL (sem split pooler). As peças soltas (`DB_HOST`, `DB_PORT`,
+  `DB_USER`, `DB_PASSWORD`, `DB_NAME`) continuam no `.env` como referência.
+- **CA certificate:** `certs/ca.pem` (baixado no painel da Aiven), coberto
+  pelo `*.pem` do `.gitignore` - cada ambiente de deploy precisa desse arquivo
+  presente (ele não vai pro git).
 - **Campos administrativos de `Vehicle`** (`licensePlate`, `renavam`, `chassis`,
   `fipeCode`, `purchaseCost`, `internalNotes`): `omit` global no `PrismaClient`
   (`VEHICLE_ADMIN_FIELDS` em `src/lib/db.ts`). Toda query os exclui por padrão;
   só `src/lib/admin.ts` (`getVehiclesForAdmin`, com `omit: { <campo>: false }`)
-  os lê. Verificado em runtime: cliente público devolve 22 campos, sem os 6.
+  os lê.
 - `postinstall` roda `prisma generate`. Scripts: `db:test` (conexão),
-  `db:verify` (tabelas/enums/FKs/índices), `db:seed`, `db:studio`,
-  `admin:create` (cria o usuário admin no Supabase Auth a partir do `.env`).
+  `db:verify` (tabelas/enums/FKs/índices via `information_schema`), `db:seed`,
+  `db:studio`, `admin:create` (cria o usuário admin no Supabase Auth a partir
+  do `.env`).
 - Credenciais só em `.env` (coberto por `.gitignore`, padrão `.env*`).
+- **Vulnerabilidade conhecida do driver `mariadb`:** a versão que
+  `@prisma/adapter-mariadb` fixa (3.4.5) tem uma falha de vazamento de senha
+  em cleartext pro MitM (`GHSA-cqhc-2h57-wpxf`, corrigida na 3.4.6+). Fixado
+  via `overrides` (`"mariadb": ">=3.4.7"`) - mesmo padrão já usado pra
+  `mysql2`/`deepmerge-ts`. `npm audit`: 0 vulnerabilidades.
 
 **Fluxo de dados (mocks -> banco):** `data/vehicles.ts` foi removido. A UI
 consome de:
@@ -322,8 +342,14 @@ com `src/types/vehicle.ts`):
 1. `veiculos` — `Vehicle`: slug, brand, model, version, year, manufactureYear,
    price (R$ inteiros), mileage, fuel/transmission/body (enums), color, doors,
    plateEnd, featuredPosition (1/2/3 ou null, `@unique`, gerido em
-   `/admin/destaques`), status, highlights[] , features[], description, timestamps.
-   Campos internos (placa, renavam, chassi, fipe, custo, notas) nunca vão ao site.
+   `/admin/destaques`), status, highlights (`Json`, array de string), features
+   (`Json`, array de string), description, timestamps. MySQL não tem scalar
+   list nativa no Prisma, por isso `highlights`/`features` são `Json` em vez de
+   `String[]` - `src/lib/vehicles.ts` (`toVehicle`) e `src/lib/admin.ts`
+   (`getVehicleForAdmin`) normalizam de volta pra `string[]` na leitura; na
+   escrita (`saveVehicle`) o zod já produz `string[]`, que é atribuível direto
+   num campo `Json`. Campos internos (placa, renavam, chassi, fipe, custo,
+   notas) nunca vão ao site.
 2. `veiculo_fotos` — `VehiclePhoto`: vehicleId, url, alt, position (capa = menor).
 3. `leads` — `Lead`: kind (CONTATO/TROCA/INTERESSE/FINANCIAMENTO), name, phone,
    subject, message, tradeCar, tradeKm, vehicleId?, status.
@@ -332,19 +358,29 @@ com `src/types/vehicle.ts`):
    `getSiteConfig()` com fallback para `src/lib/site.ts`; editável em
    `/admin/config`.
 
-**Status:** migrations `20260910174458_init` e
-`20260911200226_replace_featured_with_position` aplicadas no Supabase
-(PostgreSQL 17.6). `db:verify`: 5 tabelas + 6 enums + 2 FKs + 16 índices
-(inclui o `@unique` de `featuredPosition`). Seed: 14 veículos, 89 fotos
-(picsum, dev), 4 depoimentos, 1 config.
+**Status:** migration `20260912132912_init` aplicada na Aiven (MySQL 8.4.8).
+As migrations Postgres antigas foram descartadas na migração de banco (SQL
+Postgres não roda em MySQL; histórico reiniciado). `db:verify`: 6 tabelas
+(5 do app + `_prisma_migrations`) + 6 enums (colunas `ENUM` nativas, com
+acentuação preservada) + 2 FKs + 17 índices (inclui o `@unique` de
+`featuredPosition`; um a mais que no Postgres porque o InnoDB cria índice
+automático pra coluna de FK). Seed: 14 veículos, 89 fotos (picsum, dev), 4
+depoimentos, 1 config - conferido campo a campo, batendo com o Postgres
+original.
 `db:test` / `tsc` / `eslint` / `next build` passam. `npm audit`: 0
-vulnerabilidades (via `overrides` de `mysql2` e `deepmerge-ts` — transitivas do
-Prisma, `mysql2` nem é usada).
+vulnerabilidades.
 
-Migrations futuras: `prisma migrate dev --name <x>` (usa `DIRECT_URL`).
+Migrations futuras: `prisma migrate dev --name <x>` (usa `DATABASE_URL`).
 
 ## Pendências
 
+0. **Supabase Auth/Storage sem credenciais no `.env`**: `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` não estão
+   preenchidas hoje. Sem elas, `/admin/login` não autentica e o upload de
+   fotos fica indisponível (o resto do CRUD funciona normalmente, avisos já
+   tratados em `isSupabaseConfigured`/`isServiceRoleConfigured`). Independente
+   do banco de dados - só falta colar os valores reais do projeto Supabase no
+   `.env`.
 1. **Fotos reais dos veículos**: o admin sobe pelo `PhotoManager`
    (`/admin/veiculos/[id]`); as `picsum` do seed são só demo, o admin substitui.
 2. **Dados da loja**: `configuracoes` está seedada com os placeholders do
@@ -367,9 +403,9 @@ Migrations futuras: `prisma migrate dev --name <x>` (usa `DIRECT_URL`).
    criar policy para `authenticated`.
 6. **CRUD admin — próximos**: edição de `alt` da foto, status de lead
    (novo→fechado), `generateStaticParams`/ISR se quiser SSG parcial.
-7. **Destaques da home**: a migration que trocou o checkbox `featured` pelo
-   `featuredPosition` zerou os 3 destaques anteriores. O admin precisa
-   escolher os 3 de novo em `/admin/destaques`.
+7. **Destaques da home**: recriados pelo seed na migração pro MySQL/Aiven
+   (posições 1/2/3 = Tiggo 5X, Compass, Corolla). Se o admin trocar depois,
+   usa `/admin/destaques` normalmente.
 
 ## Regras de manutenção
 

@@ -1,4 +1,4 @@
-// Benevento's Veículos - schema do banco (PostgreSQL / Supabase)
+// Benevento's Veículos - schema do banco (MySQL / Aiven)
 // A camada de acesso continua sendo src/lib/vehicles.ts; este schema descreve
 // o que o banco guarda. Nomes de tabela em pt-BR via @@map; modelos e campos
 // em inglês para casar com src/types/vehicle.ts.
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   // Prisma 7: a URL de conexão fica em prisma.config.ts (CLI/migrations) e no
   // adapter passado ao PrismaClient em runtime (src/lib/db.ts). Nunca no schema.
 }
@@ -48,10 +48,10 @@ enum VehicleStatus {
 
 model Vehicle {
   id               String        @id @default(cuid())
-  slug             String        @unique // rota /estoque/[slug]
+  slug             String        @unique @db.VarChar(200) // rota /estoque/[slug]
   brand            String
   model            String
-  version          String
+  version          String        @db.VarChar(200)
   year             Int // ano modelo
   manufactureYear  Int           @map("manufacture_year") // ano de fabricação
   price            Int // R$ inteiros (à vista), igual ao mock
@@ -64,9 +64,9 @@ model Vehicle {
   plateEnd         Int           @map("plate_end") // final da placa (rodízio)
   featuredPosition Int?          @unique @map("featured_position") // 1, 2 ou 3; null = não é destaque
   status           VehicleStatus @default(AVAILABLE)
-  highlights       String[] // 2-3 frases curtas de venda
-  features         String[] // itens de série e opcionais
-  description      String
+  highlights       Json // string[]: 2-3 frases curtas de venda
+  features         Json // string[]: itens de série e opcionais
+  description      String        @db.Text
 
   photos    VehiclePhoto[]
   leads     Lead[]
@@ -81,7 +81,7 @@ model Vehicle {
   chassis       String?
   fipeCode      String? @map("fipe_code")
   purchaseCost  Int?    @map("purchase_cost")
-  internalNotes String? @map("internal_notes")
+  internalNotes String? @map("internal_notes") @db.Text
 
   @@index([status])
   @@index([brand])
@@ -95,7 +95,7 @@ model VehiclePhoto {
   id        String   @id @default(cuid())
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   vehicleId String   @map("vehicle_id")
-  url       String
+  url       String   @db.Text
   alt       String?
   position  Int      @default(0) // ordem na galeria; a menor é a capa
   createdAt DateTime @default(now()) @map("created_at")
@@ -127,9 +127,9 @@ model Lead {
   kind      LeadKind
   name      String
   phone     String // WhatsApp com DDD
-  subject   String? // form de contato ("Quero comprar", ...)
-  message   String? // form de contato
-  tradeCar  String?    @map("trade_car") // form de troca: "Onix 1.0 2019, 60 mil km"
+  subject   String?    @db.Text // form de contato ("Quero comprar", ...)
+  message   String?    @db.Text // form de contato
+  tradeCar  String?    @map("trade_car") @db.Text // form de troca: "Onix 1.0 2019, 60 mil km"
   tradeKm   Int?       @map("trade_km") // form de troca (opcional)
   vehicle   Vehicle?   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   vehicleId String?    @map("vehicle_id") // "Tenho interesse" / "Simular financiamento"
@@ -147,7 +147,7 @@ model Lead {
 
 model Testimonial {
   id        String   @id @default(cuid())
-  quote     String
+  quote     String   @db.Text
   author    String
   context   String // "levou um Corolla XEi"
   published Boolean  @default(true)
@@ -166,20 +166,20 @@ model SiteConfig {
   id              String   @id @default("default")
   name            String
   shortName       String   @map("short_name")
-  tagline         String
+  tagline         String   @db.Text
   soldCount       Int      @map("sold_count")
   yearsActive     Int      @map("years_active")
   instagramHandle String   @map("instagram_handle")
-  instagramUrl    String   @map("instagram_url")
+  instagramUrl    String   @map("instagram_url") @db.Text
   whatsappNumber  String   @map("whatsapp_number") // só dígitos, 55 + DDD
-  whatsappMessage String   @map("whatsapp_message")
+  whatsappMessage String   @map("whatsapp_message") @db.Text
   email           String
-  addressStreet   String   @map("address_street")
+  addressStreet   String   @map("address_street") @db.Text
   addressDistrict String   @map("address_district")
   addressCity     String   @map("address_city")
   addressState    String   @map("address_state")
   addressZip      String   @map("address_zip")
-  mapsUrl         String   @map("maps_url")
+  mapsUrl         String   @map("maps_url") @db.Text
   hours           Json // [{ days: string, time: string }]
   updatedAt       DateTime @updatedAt @map("updated_at")
 

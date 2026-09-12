@@ -8,13 +8,20 @@ if (existsSync(".env")) {
   process.loadEnvFile(".env");
 }
 
-// Migrations / CLI usam a conexao SESSION (5432, suporta DDL). Em dev o
-// DATABASE_URL pode ja ser a session; em producao ele e a transaction (6543),
-// entao preferimos DIRECT_URL quando existir.
-const migrationUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const migrationUrl = process.env.DATABASE_URL;
 if (!migrationUrl) {
-  throw new Error("Defina DIRECT_URL (ou DATABASE_URL) no .env.");
+  throw new Error("Defina DATABASE_URL no .env.");
 }
+
+// MySQL/Aiven exige TLS. sslaccept=strict valida o certificado do servidor
+// contra o CA abaixo (sslcert = caminho pro CA, nao um cert de cliente).
+// O schema engine (migrate/db pull/studio) le esses parametros direto da URL;
+// o runtime (src/lib/db.ts) monta o mesmo TLS via objeto, ver detalhes la.
+const url = new URL(migrationUrl);
+url.searchParams.set("sslaccept", "strict");
+url.searchParams.set("sslcert", "certs/ca.pem");
+// Default do engine (~5s) é curto demais pro round-trip até a Aiven.
+url.searchParams.set("connect_timeout", "15");
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -23,6 +30,6 @@ export default defineConfig({
   },
   // Usado por migrate / db execute / db pull / studio. Nao vai para o client.
   datasource: {
-    url: migrationUrl,
+    url: url.toString(),
   },
 });
