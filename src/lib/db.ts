@@ -65,6 +65,15 @@ function buildPoolConfig(raw: string) {
     ssl: { ca, rejectUnauthorized: true },
     // Default do driver (~1s) é curto demais pro round-trip até a Aiven.
     connectTimeout: 15000,
+    // Cada invocação serverless da Vercel pode instanciar seu próprio
+    // PrismaClient (globalThis não é compartilhado entre lambdas), cada um
+    // com seu próprio pool. Sem isso o driver usa connectionLimit=10 por
+    // pool; com N lambdas ativas ao mesmo tempo isso estoura o
+    // max_connections do plano da Aiven, e o pool passa a falhar pra todo
+    // mundo com "pool failed to retrieve a connection from pool". Limite
+    // baixo aqui porque uma única invocação serverless normalmente só
+    // precisa de 1 conexão por vez.
+    connectionLimit: 3,
   };
 }
 
